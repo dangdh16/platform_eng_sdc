@@ -1,0 +1,8 @@
+.DS_Store
+**/report/
+**/*.jtl
+**/*.log
+**/*.terragrunt-cache
+**/*.terraform.lock.hcl
+**/*.terraform
+**/*.terraform.lock.hcl
