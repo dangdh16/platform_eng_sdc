@@ -10,14 +10,14 @@ variable "bucket" {
   default     = "terraform"
 }
 
-# variable "vpc_id" {
-#   type        = string
-#   description = "Your VPC ID"
-#   default     = "vpc-0eb0772fd54a5c5e3"
-# }
-
 variable "instance_type" {
   type        = string
   description = "Your VPC ID"
   default     = "t2.medium"
+}
+
+variable "domain_name" {
+  type        = string
+  description = "Your VPC ID"
+  default     = "backstage.aws.com"
 }

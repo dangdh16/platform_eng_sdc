@@ -1,42 +1,39 @@
-output "test" {
-  value = local.user_data
-}
-module "backstage" {
-  source = "../modules/terraform-aws-ec2-instance"
+# module "backstage" {
+#   source = "../modules/terraform-aws-ec2-instance"
 
-  name = local.name
+#   name = local.name
 
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type
-  availability_zone           = tolist(data.aws_availability_zones.available.names)[0]
-  subnet_id                   = data.aws_subnet.default.id
-  vpc_security_group_ids      = [module.security_group.security_group_id]
-  associate_public_ip_address = true
-  disable_api_stop            = false
+#   ami                         = data.aws_ami.ubuntu.id
+#   instance_type               = var.instance_type
+#   availability_zone           = tolist(data.aws_availability_zones.available.names)[0]
+#   subnet_id                   = data.aws_subnet.subneta.id
+#   vpc_security_group_ids      = [module.security_group.security_group_id]
+#   associate_public_ip_address = true
+#   disable_api_stop            = false
 
-  create_iam_instance_profile = true
-  iam_role_description        = "IAM role for EC2 instance"
-  iam_role_policies = {
-    AdministratorAccess = "arn:aws:iam::aws:policy/AdministratorAccess"
-  }
-  user_data            = local.user_data
-#   user_data_base64     = local.user_data_base64
-  user_data_replace_on_change = true
+#   create_iam_instance_profile = true
+#   iam_role_description        = "IAM role for EC2 instance"
+#   iam_role_policies = {
+#     AdministratorAccess = "arn:aws:iam::aws:policy/AdministratorAccess"
+#   }
+#   user_data            = local.user_data
+# #   user_data_base64     = local.user_data_base64
+#   user_data_replace_on_change = true
 
-  enable_volume_tags = false
-  root_block_device = [
-    {
-      encrypted   = true
-      volume_type = "gp3"
-      throughput  = 200
-      volume_size = 20
-      tags = {
-        Name = "${local.name}-ebs"
-      }
-    },
-  ]
-  tags = local.tags
-}
+#   enable_volume_tags = false
+#   root_block_device = [
+#     {
+#       encrypted   = true
+#       volume_type = "gp3"
+#       throughput  = 200
+#       volume_size = 20
+#       tags = {
+#         Name = "${local.name}-ebs"
+#       }
+#     },
+#   ]
+#   tags = local.tags
+# }
 
 module "security_group" {
   source  = "../modules/terraform-aws-security-group"
@@ -52,8 +49,8 @@ module "security_group" {
   tags = local.tags
 }
 
-module "complete" {
-  source = "../../modules/terraform-aws-autoscaling"
+module "backstage-asg" {
+  source = "../modules/terraform-aws-autoscaling"
     
   # Autoscaling group
   name            = "${local.name}-asg"
@@ -68,12 +65,12 @@ module "complete" {
   wait_for_capacity_timeout = 0
   default_instance_warmup   = 300
   health_check_type         = "EC2"
-  vpc_zone_identifier       = module.vpc.private_subnets
+  vpc_zone_identifier       = [data.aws_subnet.subneta.id, data.aws_subnet.subnetb.id]
 #   service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
 
   # Traffic source attachment
   create_traffic_source_attachment = true
-  traffic_source_identifier        = module.alb.target_groups["ex_asg"].arn
+  traffic_source_identifier        = module.backstage-alb.target_groups["ex_asg"].arn
   traffic_source_type              = "elbv2"
 
   instance_refresh = {
@@ -97,8 +94,8 @@ module "complete" {
 
   image_id          = data.aws_ami.ubuntu.id
   instance_type     = var.instance_type
-  user_data         = local.user_data
-  ebs_optimized     = true
+  user_data         = base64encode(local.user_data)
+  ebs_optimized     = false
   enable_monitoring = false
 
   create_iam_instance_profile = true
@@ -130,10 +127,6 @@ module "complete" {
     capacity_reservation_preference = "open"
   }
 
-  instance_market_options = {
-    market_type = "spot"
-  }
-
   placement = {
     availability_zone = "${local.region}a"
   }
@@ -154,32 +147,6 @@ module "complete" {
   ]
 
   tags = local.tags
-
-  # Autoscaling Schedule
-#   schedules = {
-#     night = {
-#       min_size         = 0
-#       max_size         = 0
-#       desired_capacity = 0
-#       recurrence       = "0 18 * * 1-5" # Mon-Fri in the evening
-#       time_zone        = "Europe/Rome"
-#     }
-
-#     morning = {
-#       min_size         = 0
-#       max_size         = 1
-#       desired_capacity = 1
-#       recurrence       = "0 7 * * 1-5" # Mon-Fri in the morning
-#     }
-
-#     go-offline-to-celebrate-new-year = {
-#       min_size         = 0
-#       max_size         = 0
-#       desired_capacity = 0
-#       start_time       = "2031-12-31T10:00:00Z" # Should be in the future
-#       end_time         = "2032-01-01T16:00:00Z"
-#     }
-#   }
   # Target scaling policy schedule based on average CPU load
   scaling_policies = {
     avg-cpu-policy-greater-than-50 = {
@@ -195,29 +162,57 @@ module "complete" {
   }
 }
 
-# module "ec2_network_interface" {
-#   source = "../"
+module "backstage-alb" {
+  source  = "../modules/terraform-aws-alb"
 
-#   name = "${local.name}-network-interface"
+  name = local.name
 
-#   network_interface = [
-#     {
-#       device_index          = 0
-#       network_interface_id  = aws_network_interface.this.id
-#       delete_on_termination = false
-#     }
-#   ]
+  vpc_id  = data.aws_vpc.default.id
+  subnets = [data.aws_subnet.subneta.id, data.aws_subnet.subnetb.id]
 
-# resource "aws_network_interface" "this" {
-#   subnet_id = element(module.vpc.private_subnets, 0)
-# }
+  # For example only
+  enable_deletion_protection = false
 
-#   tags = local.tags
-# }
+  # Security Group
+  security_group_ingress_rules = {
+    all_http = {
+      from_port   = 80
+      to_port     = 80
+      ip_protocol = "tcp"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
+  }
+  security_group_egress_rules = {
+    all = {
+      ip_protocol = "-1"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
+  }
 
-# module "ec2_disabled" {
-#   source = "../"
+  listeners = {
+    ex_http = {
+      port     = 80
+      protocol = "HTTP"
 
-#   create = false
-# }
+      forward = {
+        target_group_key = "ex_asg"
+      }
+    }
+  }
 
+  target_groups = {
+    ex_asg = {
+      backend_protocol                  = "HTTP"
+      backend_port                      = 80
+      target_type                       = "instance"
+      deregistration_delay              = 5
+      load_balancing_cross_zone_enabled = true
+
+      # There's nothing to attach here in this definition.
+      # The attachment happens in the ASG module above
+      create_attachment = false
+    }
+  }
+
+  tags = local.tags
+}
