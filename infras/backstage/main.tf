@@ -1,40 +1,3 @@
-# module "backstage" {
-#   source = "../modules/terraform-aws-ec2-instance"
-
-#   name = local.name
-
-#   ami                         = data.aws_ami.ubuntu.id
-#   instance_type               = var.instance_type
-#   availability_zone           = tolist(data.aws_availability_zones.available.names)[0]
-#   subnet_id                   = data.aws_subnet.subneta.id
-#   vpc_security_group_ids      = [module.security_group.security_group_id]
-#   associate_public_ip_address = true
-#   disable_api_stop            = false
-
-#   create_iam_instance_profile = true
-#   iam_role_description        = "IAM role for EC2 instance"
-#   iam_role_policies = {
-#     AdministratorAccess = "arn:aws:iam::aws:policy/AdministratorAccess"
-#   }
-#   user_data            = local.user_data
-# #   user_data_base64     = local.user_data_base64
-#   user_data_replace_on_change = true
-
-#   enable_volume_tags = false
-#   root_block_device = [
-#     {
-#       encrypted   = true
-#       volume_type = "gp3"
-#       throughput  = 200
-#       volume_size = 20
-#       tags = {
-#         Name = "${local.name}-ebs"
-#       }
-#     },
-#   ]
-#   tags = local.tags
-# }
-
 module "security_group" {
   source  = "../modules/terraform-aws-security-group"
 
@@ -211,4 +174,21 @@ module "backstage-alb" {
   }
 
   tags = local.tags
+}
+
+module "backstage-s3-bucket" {
+  source = "../modules/terraform-aws-s3-bucket"
+
+  bucket        = "${local.name}-bucket-123"
+  force_destroy = true
+}
+
+module "backstage-s3-object" {
+  source = "../modules/terraform-aws-s3-bucket/modules/object"
+
+  bucket = module.backstage-s3-bucket.s3_bucket_id
+  key    = "backstage-local"
+  tags = {
+    Sensitive = "not-really"
+  }
 }

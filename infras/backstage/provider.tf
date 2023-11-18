@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
-    bucket = "terraformstate-dang1"
-    key    = "dangtest"
+    bucket = "terraform-backstage-dang"
+    key    = "backstage"
     region = "us-east-1"
   }
 }

@@ -1,7 +1,7 @@
 locals {
   name   = "${basename(path.cwd)}"
   region =  var.region
-
+  bucket = var.bucket
   vpc_cidr = "10.0.0.0/16"
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
@@ -24,7 +24,13 @@ locals {
     echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
     apt-get update -y
     apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-    echo "bye" > /tmp/test
+    git clone https://github.com/dangdh16/platform_eng_sdc.git
+    cd platform_eng_sdc/backstage
+    yarn install
+    sed -i "s/<CHANGE_ME_IP>/$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')/g" app-config.yaml
+    sed -i "s/<CHANGE_ME_PUBLIC>/$(curl -s ip.me)/g" app-config.yaml
+    nohup yarn dev > /dev/null 2>&1 &
+    echo "bye" >> /tmp/test
   EOT
   user_data_base64 = templatefile("./userdata_base64.sh",{})
   tags = {

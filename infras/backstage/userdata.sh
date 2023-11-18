@@ -18,4 +18,4 @@ apt-get update -y
 apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
 echo "bye" > /tmp/test
 # Install backstage
-#npx @backstage/create-app@latest --skip-install
+# 
