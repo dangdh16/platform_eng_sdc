@@ -139,10 +139,6 @@ module "backstage-asg" {
     {
       resource_type = "volume"
       tags          = merge({ WhatAmI = "Volume" })
-    },
-    {
-      resource_type = "spot-instances-request"
-      tags          = merge({ WhatAmI = "SpotInstanceRequest" })
     }
   ]
 
