@@ -1,13 +1,58 @@
 module "security_group" {
   source  = "../modules/terraform-aws-security-group"
 
-  name        = local.name
+  name        = "${local.name}-sg"
   description = "Security group for example usage with EC2 instance"
   vpc_id      = data.aws_vpc.default.id
 
   ingress_cidr_blocks = ["0.0.0.0/0"]
   ingress_rules       = ["http-80-tcp", "all-icmp"]
   egress_rules        = ["all-all"]
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 3000
+      to_port     = 3000
+      protocol    = 6
+      description = "Backstage port"
+      cidr_blocks = "0.0.0.0/0"
+    },
+    {
+      from_port   = 5432
+      to_port     = 5432
+      protocol    = 6
+      description = "DB backstage port"
+      cidr_blocks = "0.0.0.0/0"
+    },
+    {
+      from_port   = 7007
+      to_port     = 7007
+      protocol    = 6
+      description = "Backstage backend port"
+      cidr_blocks = "0.0.0.0/0"
+    },
+  ]
+
+  tags = local.tags
+}
+
+module "db_security_group" {
+  source  = "../modules/terraform-aws-security-group"
+
+  name        = "${local.name}-dbsg"
+  description = "Security group for Db"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress_cidr_blocks = ["0.0.0.0/0"]
+  egress_rules        = ["all-all"]
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 5432
+      to_port     = 5432
+      protocol    = 6
+      description = "DB backstage port"
+      cidr_blocks = "0.0.0.0/0"
+    },
+  ]
 
   tags = local.tags
 }
@@ -30,7 +75,7 @@ module "backstage-asg" {
   health_check_type         = "EC2"
   vpc_zone_identifier       = [data.aws_subnet.subneta.id, data.aws_subnet.subnetb.id]
 #   service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
-
+  security_groups          = [module.security_group.security_group_id]
   # Traffic source attachment
   create_traffic_source_attachment = true
   traffic_source_identifier        = module.backstage-alb.target_groups["ex_asg"].arn
@@ -57,7 +102,7 @@ module "backstage-asg" {
 
   image_id          = data.aws_ami.ubuntu.id
   instance_type     = var.instance_type
-  user_data         = base64encode(local.user_data)
+  user_data         = base64encode(local.user_data_base64)
   ebs_optimized     = false
   enable_monitoring = false
 
@@ -80,7 +125,7 @@ module "backstage-asg" {
       ebs = {
         delete_on_termination = true
         encrypted             = true
-        volume_size           = 20
+        volume_size           = 30
         volume_type           = "gp2"
       }
     }
@@ -119,13 +164,12 @@ module "backstage-asg" {
       }
     }
   }
+  depends_on = [ aws_db_instance.default_db ]
 }
 
 module "backstage-alb" {
   source  = "../modules/terraform-aws-alb"
-
   name = local.name
-
   vpc_id  = data.aws_vpc.default.id
   subnets = [data.aws_subnet.subneta.id, data.aws_subnet.subnetb.id]
 
@@ -161,14 +205,11 @@ module "backstage-alb" {
 
   target_groups = {
     ex_asg = {
-      backend_protocol                  = "HTTP"
-      backend_port                      = 80
+      protocol                  = "HTTP"
+      port                      = 3000
       target_type                       = "instance"
       deregistration_delay              = 5
       load_balancing_cross_zone_enabled = true
-
-      # There's nothing to attach here in this definition.
-      # The attachment happens in the ASG module above
       create_attachment = false
     }
   }
@@ -176,19 +217,20 @@ module "backstage-alb" {
   tags = local.tags
 }
 
-module "backstage-s3-bucket" {
-  source = "../modules/terraform-aws-s3-bucket"
-
-  bucket        = "${local.name}-bucket-123"
-  force_destroy = true
-}
-
-module "backstage-s3-object" {
-  source = "../modules/terraform-aws-s3-bucket/modules/object"
-
-  bucket = module.backstage-s3-bucket.s3_bucket_id
-  key    = "backstage-local"
-  tags = {
-    Sensitive = "not-really"
-  }
+resource "aws_db_instance" "default_db" {
+  identifier              = "backstage-db"
+  allocated_storage       = 20
+  storage_type            = "gp2"
+  engine                  = "postgres"
+  engine_version          = "13.8"
+  parameter_group_name    = "default.postgres13"
+  instance_class          = "db.t3.micro"
+  username = "backstage"
+  password = "backstage123"
+  multi_az                = false
+  skip_final_snapshot     = true
+  deletion_protection     = false
+  backup_retention_period = 15
+  availability_zone       = "us-east-1a"
+  vpc_security_group_ids  = [module.db_security_group.security_group_id]
 }
