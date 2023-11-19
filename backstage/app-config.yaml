@@ -47,7 +47,7 @@ integrations:
     - host: github.com
       # This is a Personal Access Token or PAT from GitHub. You can find out how to generate this token, and more information
       # about setting up the GitHub integration here: https://backstage.io/docs/getting-started/configuration#setting-up-a-github-integration
-      token: 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
+      token: TOKEN
     ### Example for how to add your GitHub Enterprise instance using the API:
     # - host: ghe.example.net
     #   apiBaseUrl: https://ghe.example.net/api/v3
@@ -74,11 +74,11 @@ techdocs:
 
 auth:
   # see https://backstage.io/docs/auth/ to learn about auth providers
-  providers:
-    github:
-      development:
-        clientId: a162e7a0f3d4f5c02cdb
-        clientSecret: e98a7273f52746cf26539f58240fa249a91e001b
+  providers: {}
+  #   github:
+  #     development:
+  #       clientId: a162e7a0f3d4f5c02cdb
+  #       clientSecret: e98a7273f52746cf26539f58240fa249a91e001b
 
 scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
@@ -96,7 +96,7 @@ catalog:
 
     # Local example template
     - type: file
-      target: ../../examples/template/template.yaml
+      target: ../../examples/template/web_creatation/template.yaml
       rules:
         - allow: [Template]
 

@@ -102,7 +102,9 @@ module "backstage-asg" {
 
   image_id          = data.aws_ami.ubuntu.id
   instance_type     = var.instance_type
-  user_data         = base64encode(local.user_data_base64)
+  user_data         = base64encode(templatefile("${path.module}/userdata.tpl", { 
+    database_address = aws_db_instance.default_db.address 
+  }))
   ebs_optimized     = false
   enable_monitoring = false
 
@@ -164,7 +166,9 @@ module "backstage-asg" {
       }
     }
   }
-  depends_on = [ aws_db_instance.default_db ]
+  depends_on = [ 
+    aws_db_instance.default_db 
+  ]
 }
 
 module "backstage-alb" {

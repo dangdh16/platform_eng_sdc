@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket = "terraform-backstage-dangdong"
+    bucket = "terraform-backstage-dang"
     key    = "backstage"
     region = "us-east-1"
   }
