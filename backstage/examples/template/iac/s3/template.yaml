@@ -1,0 +1,125 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+# some metadata about the template itself
+metadata:
+  name: v1beta3-demo
+  title: Create sample S3 on AWS
+  description: Create a sample S3 bucket on AWS
+spec:
+  owner: hieutran29
+  type: service
+
+  # these are the steps which are rendered in the frontend with the form input
+  parameters:
+    - title: Provide AWS credentials for backstage
+      required:
+        - accessKeyId
+        - secretAccessKey
+      properties:
+        accessKeyId:
+          title: Access Key ID
+          type: string
+          description: Access key ID
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        secretAccessKey:
+          title: Secret access key
+          type: string
+          description: Secret access key
+          ui:autofocus: true
+          ui:widget: password
+    - title: Provide S3 specification
+      required:
+        - name
+        - region
+      properties:
+        region:
+          title: Region
+          description: AWS region of the bucket
+          type: string
+          enum:
+            - us-east-1
+            - ap-southeast-1
+          enumNames:
+            - North Virgina (us-east-1)
+            - Singapore (ap-southeast-1)
+          uniqueItems: true
+          ui:widget: select
+        name:
+          title: Name
+          type: string
+          description: Unique name of the component
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        versioning:
+          title: Versioning
+          type: boolean
+          default: true
+          description: Whether versioning should be enabled
+          ui:autofocus: true
+          ui:widget: radio
+    - title: Choose a location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  # here's the steps that are executed in series in the scaffolder backend
+  steps:
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./iac/roots/s3
+        values:
+          name: ${{ parameters.name }}
+          region: ${{ parameters.region }}
+          versioning: ${{ parameters.versioning }}
+          repoUrl: ${{ parameters.repoUrl }}
+
+    # - id: fetch-docs
+    #   name: Fetch Docs
+    #   action: fetch:plain
+    #   input:
+    #     targetPath: ./community
+    #     url: https://github.com/backstage/community/tree/main/backstage-community-sessions
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: This is ${{ parameters.name }}
+        repoUrl: ${{ parameters.repoUrl }}
+        protectDefaultBranch: false
+        secrets: {
+          AWS_ACCESS_KEY_ID: "${{ parameters.accessKeyId }}",
+          AWS_SECRET_ACCESS_KEY: "${{ parameters.secretAccessKey }}"
+        }
+        repoVariables: {
+          AWS_ACCESS_KEY_ID: "${{ parameters.accessKeyId }}"
+        }
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  # some outputs which are saved along with the job for use in the frontend
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

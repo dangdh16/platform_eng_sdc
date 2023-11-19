@@ -1,0 +1,36 @@
+apiVersion: backstage.io/v1beta2
+kind: Template
+metadata:
+  name: aws-web-app
+  title: Sample AWS Web Application
+  description: Create a new AWS Web application
+spec:
+  owner: team-b
+  type: service
+
+  parameters:
+    - name: name
+      description: Unique name of the component
+      schema:
+        type: string
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:cookiecutter
+      input:
+        url: ./template
+      
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: '{{ parameters.repoUrl }}'
+        description: '{{ parameters.description }}'
+        catalogInfoPath: './catalog-info.yaml'
+
+  output:
+    title: AWS Web App Service
+    links:
+      - url: '{{ steps.publish.output.remoteUrl }}'
+        title: Check it out on GitHub.
